@@ -754,8 +754,6 @@ The benchmark UI and data model keep synthetic simulation separate from real orc
 
 ---
 
----
-
 Built with curiosity, iteration, and a focus on reliable engineering.
 
 Thanks for exploring NEXUS — feedback, ideas, and suggestions are always welcome.
