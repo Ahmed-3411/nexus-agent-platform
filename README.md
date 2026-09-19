@@ -1,757 +1,130 @@
-# NEXUS Agent Platform
+# Enterprise Agentic Workflow Platform
 
-<p align="center">
-  <img src="docs/assets/nexus-hero-auth.png" alt="NEXUS Agent Platform — secure access and platform overview" width="100%" />
-</p>
+A security-first Python platform for planning and executing multi-step enterprise workflows through MCP services. It includes JWT authentication, RBAC, fail-closed policy enforcement, risk-based human approval, post-action verification, recovery, durable workflow state, and append-only audit records.
 
-<p align="center">
-  <sub>Secure access, governed workflows, platform health, and performance visibility in one workspace.</sub>
-</p>
+## Release status
 
+The backend/control-plane release candidate and Next.js operations dashboard are complete. The repository has not been benchmarked against live Gmail/Drive/provider endpoints; see [Known limitations](#known-limitations).
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.12" />
-  <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C?style=flat-square" alt="LangGraph" />
-  <img src="https://img.shields.io/badge/MCP-1.28.1-5B5BD6?style=flat-square" alt="Model Context Protocol" />
-  <img src="https://img.shields.io/badge/Pydantic-Validation-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic" />
-  <img src="https://img.shields.io/badge/Uvicorn-ASGI-499848?style=flat-square" alt="Uvicorn" />
-</p>
+## Architecture
 
-<p align="center">
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
-  <img src="https://img.shields.io/badge/asyncpg-Async%20Postgres-336791?style=flat-square" alt="asyncpg" />
-  <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis 7" />
-  <img src="https://img.shields.io/badge/JWT-Authentication-000000?style=flat-square&logo=jsonwebtokens&logoColor=white" alt="JWT" />
-  <img src="https://img.shields.io/badge/SSE-MCP%20Transport-0EA5E9?style=flat-square" alt="SSE Transport" />
-</p>
+The FastAPI service authenticates callers and passes the signed role claim into a LangGraph workflow. Every planned tool call passes through policy and risk gates before the MCP client can execute it. High-risk actions pause for a persisted human decision. Workflow steps, approvals, verifications, latency, and audit records are stored in PostgreSQL so a paused workflow can be restored after an application restart.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Next.js-Frontend-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-UI-61DAFB?style=flat-square&logo=react&logoColor=111827" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-Type%20Safety-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Tailwind%20CSS-Design%20System-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
-</p>
+Main components:
 
-<p align="center">
-  <img src="https://img.shields.io/badge/OpenAI-LLM%20Provider-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI" />
-  <img src="https://img.shields.io/badge/Anthropic-LLM%20Provider-191919?style=flat-square&logo=anthropic&logoColor=white" alt="Anthropic" />
-  <img src="https://img.shields.io/badge/Gmail-MCP%20Integration-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Gmail" />
-  <img src="https://img.shields.io/badge/Google%20Drive-MCP%20Integration-4285F4?style=flat-square&logo=googledrive&logoColor=white" alt="Google Drive" />
-  <img src="https://img.shields.io/badge/OAuth%202.0-Google%20Integrations-4285F4?style=flat-square&logo=google&logoColor=white" alt="OAuth 2.0" />
-</p>
+- `backend/api/`: authentication, health, workflow, approve, and reject endpoints.
+- `backend/agents/`: planner, graph, executor, verifier, recovery, runner, and MCP client.
+- `backend/policies/` and `backend/risk/`: RBAC and approval routing.
+- `backend/db/`: PostgreSQL models, bootstrap schema, persistence, and release migration.
+- `mcp/`: read-only PostgreSQL, Gmail, and Google Drive MCP services; Gmail also exposes draft/send with upstream approval enforcement.
+- `tests/`: unit, benchmark-harness, and database-backed approval-recovery tests.
+- `benchmark/`: deterministic synthetic and real orchestration-stack benchmark modes.
+- `frontend/`: Next.js dashboard for authentication, workflow operations, approvals, health, and benchmark results.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Docker-Containers-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/Docker%20Compose-Multi--Service%20Runtime-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose" />
-  <img src="https://img.shields.io/badge/pytest-237%20Passed-0A9EDC?style=flat-square&logo=pytest&logoColor=white" alt="pytest" />
-  <img src="https://img.shields.io/badge/ESLint-Static%20Analysis-4B32C3?style=flat-square&logo=eslint&logoColor=white" alt="ESLint" />
-</p>
+## Setup
 
-NEXUS is an **enterprise agentic workflow platform** built to demonstrate end-to-end AI systems engineering rather than a single chatbot or RAG demo.
-
-The project focuses on the engineering problems that appear when LLM planning is connected to real tools and persistent business workflows: authentication, policy enforcement, risk checks, human approval, MCP tool execution, verification, auditability, persistence, failure recovery, graceful provider fallback, and performance measurement.
-
-The repository is intended as a technical portfolio project. The emphasis is on **system design, integration, correctness, failure handling, and observability**.
-
-
-<p align="center">
-  <sub>Main operations dashboard for workflow state, approvals, recent activity, and API health.</sub>
-</p>
-
-## What this project demonstrates
-
-NEXUS combines a web application, agent orchestration layer, policy engine, persistent workflow state, MCP tool servers, and benchmarking infrastructure into one Dockerized system.
-
-A request can move through the following lifecycle:
-
-```text
-User request
-   ↓
-Authentication / role context
-   ↓
-Planner
-   ↓
-Policy + risk evaluation
-   ↓
-Tool selection
-   ↓
-Human approval when required
-   ↓
-MCP execution
-   ↓
-Result normalization
-   ↓
-Verification
-   ↓
-Persistence + audit logging
-   ↓
-Final workflow result
-```
-
-The platform is designed so expected provider or tool failures become **persisted workflow failures**, not unhandled application crashes.
-
----
-
-## Core engineering capabilities
-
-### Agent orchestration
-- Multi-step workflow execution with **LangGraph**
-- Planner output normalized into a strict workflow-step schema
-- Provider order:
-  - Anthropic
-  - OpenAI
-  - deterministic fallback planner
-- Graceful handling of:
-  - missing API keys
-  - quota exhaustion
-  - rate limits
-  - provider API failures
-  - invalid model output
-- Safe fallback behavior that does not invent unsupported tools
-
-### Policy and risk controls
-- Tool calls are evaluated before execution
-- Role-aware permissions
-- Risk classification
-- Read-only database execution model
-- Explicit SQL safety rules for database queries
-- No automatic write/delete execution path
-- Human approval support for sensitive actions
-
-### Human-in-the-loop approvals
-- Approval records are persisted
-- Approve / reject workflow
-- Optional decision reason
-- Resume from the correct workflow step
-- Approval state survives application restart
-- Recovery logic avoids duplicate side effects
-
-### MCP integration
-The platform uses the **Model Context Protocol (MCP)** for external tool execution.
-
-Implemented MCP services:
-
-| MCP server | Capabilities |
-|---|---|
-| PostgreSQL | list tables, get schema, describe table, read-only query |
-| Gmail | search, read, draft, send |
-| Google Drive | search, list, read |
-
-Backend-to-MCP communication uses **SSE transport**.
-
-Logical application tools are mapped to concrete MCP tools, for example:
-
-```text
-database.query
-    ↓
-Postgres MCP
-    ↓
-query_database(sql: str)
-```
-
-Tool results are normalized into structured dictionaries so downstream verification and persistence do not depend on raw MCP return types.
-
-### Persistence and recovery
-- PostgreSQL-backed workflow persistence
-- Workflow state
-- Workflow steps
-- Approvals
-- Verifications
-- Audit logs
-- Recovery after restart
-- Failed workflows remain inspectable
-- Final results and execution errors are persisted
-
-### Verification
-Tool results are checked after execution.
-
-Examples:
-- database row count is checked against returned rows
-- failed MCP calls produce verification evidence with the real failure reason
-- verification records are stored for workflow inspection
-
-### Error propagation
-The execution layer preserves useful root causes instead of collapsing failures into generic errors.
-
-Examples of handled runtime failures:
-- LLM provider quota exhaustion
-- missing Gmail credentials
-- missing Google Drive credentials
-- MCP tool errors
-- nested `ExceptionGroup` / `TaskGroup` failures
-
-Secrets and credentials are sanitized before errors are surfaced.
-
----
-
-# Architecture
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                         Next.js UI                           │
-│  Login • Dashboard • Create • Workflow Detail • Benchmarks  │
-└──────────────────────────────┬───────────────────────────────┘
-                               │ HTTP / JWT
-┌──────────────────────────────▼───────────────────────────────┐
-│                         FastAPI API                          │
-│   Auth • Workflow API • Approval API • Health • Persistence │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-┌──────────────────────────────▼───────────────────────────────┐
-│                     LangGraph Workflow                       │
-│                                                              │
-│ Planner → Policy/Risk → Executor → Verifier → Finalization  │
-│                     ↓                                        │
-│               Human Approval                                 │
-└──────────────────────────────┬───────────────────────────────┘
-                               │ MCP over SSE
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-┌────────▼────────┐   ┌────────▼────────┐   ┌────────▼────────┐
-│ PostgreSQL MCP  │   │   Gmail MCP     │   │   Drive MCP     │
-│ FastMCP         │   │   FastMCP       │   │   FastMCP       │
-└────────┬────────┘   └─────────────────┘   └─────────────────┘
-         │
-┌────────▼────────┐
-│ PostgreSQL 16   │
-└─────────────────┘
-
-Redis is included in the runtime stack for platform infrastructure.
-```
-
-
-<p align="center">
-  <img src="docs/assets/nexus-blueprint.png" alt="NEXUS technical blueprint" width="96%" />
-</p>
-
-<p align="center">
-  <sub>Technical overview of policy-aware execution, persistence, human approval, MCP integrations, health, and benchmarking.</sub>
-</p>
-
----
-
-# Technology stack
-
-## Backend
-
-| Technology | Usage |
-|---|---|
-| **Python 3.12** | Backend and MCP services |
-| **FastAPI** | REST API |
-| **Uvicorn** | ASGI server |
-| **LangGraph** | Stateful agent workflow orchestration |
-| **Pydantic** | Configuration and structured data validation |
-| **PostgreSQL 16** | Durable workflow / approval / audit persistence |
-| **asyncpg** | Async PostgreSQL access |
-| **Redis 7** | Runtime infrastructure |
-| **JWT / Bearer auth** | Authenticated API access |
-| **Anthropic SDK** | Optional LLM planner provider |
-| **OpenAI SDK** | Optional LLM planner provider |
-| **pytest** | Regression and integration testing |
-
-## MCP / integrations
-
-| Technology | Usage |
-|---|---|
-| **Model Context Protocol (MCP)** | Tool boundary between agent runtime and external systems |
-| **MCP Python SDK / FastMCP 1.28.1** | MCP servers |
-| **SSE transport** | Backend ↔ MCP communication |
-| **Google OAuth** | Gmail / Drive integration |
-| **PostgreSQL MCP tools** | Database inspection and safe read queries |
-
-## Engineering Stack
-
-| Area | Technologies / Tools |
-|---|---|
-| Backend | Python 3.12, FastAPI, Uvicorn, LangGraph, Pydantic |
-| LLM Providers | OpenAI SDK, Anthropic SDK |
-| MCP | Model Context Protocol, MCP Python SDK, FastMCP 1.28.1, SSE |
-| Data & Persistence | PostgreSQL 16, asyncpg, Redis 7 |
-| Frontend | Next.js, React, TypeScript, Tailwind CSS |
-| Authentication & Access | JWT / Bearer auth, role-based permissions |
-| External Integrations | Gmail API, Google Drive API, Google OAuth 2.0 |
-| Testing | pytest, integration tests, MCP contract tests, TypeScript validation, ESLint |
-| Performance | p50 / p95 / p99, throughput, success rate, concurrency testing |
-| Infrastructure | Docker, Docker Compose, multi-container networking |
-
-## Key Engineering Features
-
-- Policy-aware tool execution
-- Human-in-the-loop approvals
-- Persistent workflow recovery
-- Structured verification
-- Root-cause error propagation
-- Safe read-only SQL execution
-- Secret sanitization
-- Real-stack and synthetic benchmark separation
-
----
-
-# Frontend
-
-<p align="center">
-  <img src="docs/assets/nexus-suite.png" alt="NEXUS product suite views" width="96%" />
-</p>
-
-<p align="center">
-  <sub>Overview, health, and benchmark views presented as a single product suite.</sub>
-</p>
-
-
-| Technology | Usage |
-|---|---|
-| **Next.js** | Web application |
-| **React** | UI components |
-| **TypeScript** | Type-safe frontend |
-| **Tailwind CSS** | Design system and responsive styling |
-| **Next.js API proxy** | Backend request proxying |
-| **JWT client flow** | Authenticated workflow UI |
-
-## Infrastructure and delivery
-
-| Technology | Usage |
-|---|---|
-| **Docker** | Service packaging |
-| **Docker Compose** | Local multi-service orchestration |
-| **PostgreSQL container** | Database service |
-| **Redis container** | Runtime service |
-| **Separate MCP containers** | Postgres, Gmail, Drive servers |
-| **Environment-based configuration** | Secrets and service URLs |
-| **`.env.example`** | Safe configuration template |
-
-## Validation and performance
-
-| Technology / method | Usage |
-|---|---|
-| **pytest** | Backend regression suite |
-| **TypeScript compiler** | Frontend type validation |
-| **ESLint** | Frontend static analysis |
-| **Next.js production build** | Production frontend validation |
-| **Phase 7 benchmark harness** | Latency / throughput testing |
-| **p50 / p95 / p99 / mean** | Latency statistics |
-| **Concurrency 1, 5, 10, 25** | Scaling behavior |
-| **Real-stack vs synthetic modes** | Separates measured execution from modeled latency |
-
----
-
-# Frontend
-
-The frontend is not only a control surface for demos. It exposes the important internal workflow state so execution can be inspected.
-
-Implemented pages include:
-
-- Login
-- Registration
-- Dashboard
-- Create Workflow
-- Workflow Details
-- System Health
-- Benchmark Results
-
-The workflow detail page exposes:
-- request
-- role
-- status
-- current step
-- plan
-- tool arguments
-- result
-- error
-- risk level
-- verification
-- approvals
-- final result
-
-This makes the platform useful for debugging and explaining agent behavior instead of hiding execution behind a chat interface.
-
----
-
-# Workflow execution example
-
-A simple request:
-
-```text
-List database tables
-```
-
-can produce a planned step:
-
-```json
-{
-  "step_index": 0,
-  "tool_name": "database.list_tables",
-  "arguments": {},
-  "description": "List available public database tables."
-}
-```
-
-A successful MCP response is normalized:
-
-```json
-{
-  "tables": [
-    "approvals",
-    "audit_logs",
-    "organizations",
-    "permissions",
-    "role_permissions",
-    "roles",
-    "tools",
-    "users",
-    "verifications",
-    "workflow_steps",
-    "workflows"
-  ],
-  "ok": true,
-  "tool_name": "list_tables",
-  "server": "postgres"
-}
-```
-
-The result is then verified and persisted.
-
----
-
-# Safe SQL execution
-
-`database.query` does not accept arbitrary natural-language requests as SQL.
-
-The deterministic fallback only uses `database.query` when the request already contains valid read-only SQL.
-
-Allowed query forms are restricted to read operations such as:
-
-```sql
-SELECT 1 AS value;
-```
-
-Example result:
-
-```json
-{
-  "row_count": 1,
-  "truncated": false,
-  "rows": [
-    {
-      "value": 1
-    }
-  ],
-  "ok": true,
-  "tool_name": "query_database",
-  "server": "postgres"
-}
-```
-
-The verification layer checks:
-
-```text
-row_count == len(rows)
-```
-
-Write and delete operations are intentionally not exposed as executable database tools.
-
----
-
-# Failure behavior
-
-A key design goal is to make failures inspectable.
-
-For example, running Drive without OAuth credentials returns a structured tool failure instead of crashing the API:
-
-```json
-{
-  "ok": false,
-  "error": "Drive credentials are not configured.",
-  "tool_name": "search_files",
-  "server": "drive"
-}
-```
-
-The workflow becomes `FAILED`, while:
-- the workflow remains persisted
-- the step error is stored
-- verification is recorded
-- the final result contains the root cause
-- the workflow details API remains usable
-
-The same behavior is implemented for Gmail credential failures.
-
----
-
-# System health
-
-<p align="center">
-  <sub>Live core API status, round-trip timing, and health-check scope.</sub>
-</p>
-
-
-The health UI surfaces:
-- core API availability
-- browser-to-API round trip
-- last checked time
-- scope of the health check
-
-External LLM, Gmail, Drive, and database-provider availability are validated when their workflow tools run.
-
----
-
-# Benchmarking
-
-<p align="center">
-  <sub>Measured latency, throughput, and concurrency behavior across real-stack benchmark scenarios.</sub>
-</p>
-
-
-The benchmark infrastructure measures:
-
-- p50 latency
-- p95 latency
-- p99 latency
-- mean latency
-- throughput
-- success rate
-- concurrency levels `1`, `5`, `10`, `25`
-
-Scenarios include:
-- policy-denied path
-- normal read/tool path
-- approval workflow path
-
-The benchmark page explicitly separates:
-- **real-stack measurements**
-- **synthetic latency-budget simulations**
-
-Example measured result for the normal read/tool scenario at concurrency 25:
-
-| Metric | Result |
-|---|---:|
-| p50 | 111.71 ms |
-| p95 | 222.13 ms |
-| p99 | 239.27 ms |
-| mean | 123.17 ms |
-| throughput | 192.5 ops/s |
-| success rate | 100% |
-
-These numbers represent the tested orchestration stack, not external LLM-provider latency.
-
----
-
-# Testing status
-
-Current validated state:
-
-```text
-Backend regression suite: 237 passed
-Frontend npm install: passed
-TypeScript validation: passed
-ESLint: passed
-Next.js production build: passed
-All application routes generated successfully
-```
-
-Runtime smoke tests also validated:
-
-```text
-database.list_tables   ✓
-database.get_schema    ✓
-database.query         ✓
-Drive missing OAuth    ✓ clean failure
-Gmail missing OAuth    ✓ clean failure
-LLM unavailable        ✓ deterministic fallback
-MCP SSE transport      ✓
-Workflow persistence   ✓
-Verification records   ✓
-Audit logs             ✓
-```
-
----
-
-# Docker services
-
-The local stack contains:
-
-```text
-frontend       :3000
-backend        :8000
-mcp-postgres   :9101
-mcp-gmail      :9102
-mcp-drive      :9103
-postgres       :5432
-redis          :6379
-```
-
-MCP endpoints used by the backend:
-
-```text
-http://mcp-postgres:9101/sse
-http://mcp-gmail:9102/sse
-http://mcp-drive:9103/sse
-```
-
----
-
-# Running locally
-
-## 1. Clone
+Python 3.12 is the supported runtime.
 
 ```bash
-git clone <your-repository-url>
-cd <repository-directory>
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  -r backend/requirements.txt \
+  -r mcp/postgres/requirements.txt \
+  -r mcp/gmail/requirements.txt \
+  -r mcp/drive/requirements.txt \
+  -r tests/requirements.txt
+python -m pip check
 ```
 
-## 2. Create local environment file
-
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Linux / macOS:
+Configure the application:
 
 ```bash
 cp .env.example .env
 ```
 
-The project can run without Anthropic or OpenAI credentials because the planner has a deterministic fallback.
+Replace `JWT_SECRET_KEY`, add only the provider credentials you use, and set `CORS_ORIGINS` to a comma-separated allowlist. Never use the example JWT secret in production.
 
-Gmail and Drive require Google OAuth credentials for real external calls.
-
-## 3. Start the stack
+For a fresh Docker-based database and services:
 
 ```bash
 docker compose up -d --build
 ```
 
-## 4. Check services
+`backend/db/schema.sql` is applied automatically only when the PostgreSQL volume is first initialized. For a database created from an earlier repository version, run:
 
 ```bash
-docker compose ps
+psql "$DATABASE_URL" -f backend/db/migrations/001_phase7_release.sql
 ```
 
-## 5. Open
+When `DATABASE_URL` uses SQLAlchemy's `postgresql+asyncpg://` prefix, use an equivalent `postgresql://` URL with `psql`.
 
-```text
-Frontend: http://localhost:3000
-Backend:  http://localhost:8000
-API docs: http://localhost:8000/docs
+Run the API without Docker after starting PostgreSQL:
+
+```bash
+cd backend
+../.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
----
+Health check: `GET http://localhost:8000/health`.
 
-# Environment configuration
+Frontend: `http://localhost:3000`. The Docker service proxies API requests to
+the backend container, so the browser only needs access to port 3000.
 
-Example configuration:
+## Tests
 
-```env
-POSTGRES_USER=eap
-POSTGRES_PASSWORD=eap_dev_password
-POSTGRES_DB=eap
-DATABASE_URL=postgresql+asyncpg://eap:eap_dev_password@postgres:5432/eap
+Run the complete suite from the repository root:
 
-REDIS_URL=redis://redis:6379/0
-
-JWT_SECRET_KEY=change_me_in_production
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=60
-
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-sonnet-4-5
-
-OPENAI_API_KEY=
-OPENAI_MODEL=
-
-MCP_POSTGRES_URL=http://mcp-postgres:9101/sse
-MCP_GMAIL_URL=http://mcp-gmail:9102/sse
-MCP_DRIVE_URL=http://mcp-drive:9103/sse
-
-GMAIL_CLIENT_ID=
-GMAIL_CLIENT_SECRET=
-GMAIL_REFRESH_TOKEN=
-
-DRIVE_CLIENT_ID=
-DRIVE_CLIENT_SECRET=
-DRIVE_REFRESH_TOKEN=
-
-ENVIRONMENT=development
-LOG_LEVEL=INFO
-CORS_ORIGINS=http://localhost:3000
+```bash
+.venv/bin/python -m pytest -ra
 ```
 
-Never commit the real `.env` file.
+The approval recovery integration test uses an on-disk relational database, disposes all connections, clears the process cache, reopens the database, then validates both approve and reject recovery. It also verifies that replaying an approval after another restart does not execute the tool side effect twice.
 
----
+## Benchmarks
 
-# Repository structure
+Real orchestration-stack benchmark (real LangGraph, policy, risk, approval, verification, and recovery code; deterministic planner/MCP boundaries):
 
-```text
-.
-├── backend/
-│   ├── agents/
-│   │   ├── planner.py
-│   │   ├── graph.py
-│   │   ├── executor.py
-│   │   ├── verifier.py
-│   │   ├── recovery.py
-│   │   ├── mcp_client.py
-│   │   ├── tool_catalog.py
-│   │   └── sql_safety.py
-│   ├── api/
-│   ├── core/
-│   └── db/
-│
-├── frontend/
-│   ├── app/
-│   ├── components/
-│   └── lib/
-│
-├── mcp/
-│   ├── postgres/
-│   ├── gmail/
-│   └── drive/
-│
-├── benchmark/
-├── tests/
-├── docs/
-├── docker-compose.yml
-├── .env.example
-└── README.md
+```bash
+.venv/bin/python benchmark/integration_benchmark.py \
+  --mode stack --iterations 500 --concurrency 1 5 10 25 \
+  --output benchmark/results/release
 ```
 
----
+Synthetic latency-budget validation, reported separately and never as real performance:
 
-# Engineering decisions
+```bash
+.venv/bin/python benchmark/integration_benchmark.py \
+  --mode synthetic --iterations 500 --concurrency 1 5 10 25 \
+  --output benchmark/results/release
+```
 
-## Why MCP?
-The project treats external systems as explicit tool boundaries instead of embedding provider-specific logic directly in the agent graph.
+The release run is documented in `benchmark/PHASE7_INTEGRATION_REPORT.md`; machine-readable CSV/JSON and raw samples are under `benchmark/results/release/`.
 
-This makes the execution layer easier to inspect, replace, and secure.
+## Release benchmark summary
 
-## Why persist failures?
-A failed business workflow is still useful operational data.
+Each cell is `p50 / p95 / p99 / mean ms | throughput ops/s`; every group contains 500 samples and achieved 100% scenario success.
 
-Persisting failed workflows allows:
-- debugging
-- auditability
-- retry analysis
-- user-facing error inspection
-- post-restart recovery
+| Scenario | C=1 | C=5 | C=10 | C=25 |
+| --- | --- | --- | --- | --- |
+| Policy denied | 3.700 / 4.754 / 6.308 / 3.873 \| 256.25 | 13.953 / 17.537 / 22.219 / 14.183 \| 332.20 | 24.684 / 31.366 / 95.850 / 25.643 \| 353.84 | 66.136 / 167.475 / 177.683 / 75.082 \| 303.45 |
+| Normal read/tool | 5.899 / 8.146 / 10.071 / 6.343 \| 110.15 | 24.993 / 35.143 / 99.391 / 26.794 \| 177.64 | 44.587 / 64.380 / 132.761 / 47.485 \| 199.12 | 111.712 / 222.131 / 239.270 / 123.166 \| 192.52 |
+| Approval workflow | 7.933 / 11.024 / 14.388 / 8.376 \| 118.94 | 34.069 / 44.235 / 57.574 / 35.422 \| 137.83 | 62.632 / 80.497 / 172.145 / 66.539 \| 146.03 | 160.468 / 300.220 / 338.000 / 172.339 \| 140.42 |
 
-## Why deterministic fallback?
-An orchestration platform should not return HTTP 500 only because an LLM provider is unavailable.
+The main observed bottleneck is orchestration/event-loop contention under higher concurrency. Throughput plateaus by concurrency 10 and tail latency grows sharply at 25; approval is the most expensive path because it invokes two graph runs.
 
-The deterministic fallback keeps supported read-only workflows usable and makes provider failure a degraded mode instead of total application failure.
+## Known limitations
 
-## Why human approval?
-Some tool actions should not be treated like ordinary function calls.
+- Stack-mode numbers measure the real control plane with deterministic planner and MCP boundaries. They do not include live LLM, network, SaaS, or provider throttling latency.
+- The recovery test validates durable semantics with SQLite for portability. PostgreSQL remains the production database, and the release migration must still be exercised in the target deployment.
+- Gmail/Drive OAuth credentials and live provider behavior are environment-specific and were not exercised in the release benchmark.
+- Role changes take effect when a new JWT is issued; there is no token revocation/blocklist.
+- Exactly-once execution is protected against sequential approval replay after recovery, but cross-replica concurrent approval requires an external idempotency key or distributed execution claim at the tool boundary.
+- The MCP client opens a new SSE session per tool call; production connection pooling is not implemented.
+- Metrics export and distributed tracing are not included; audit logs and per-step latency are available.
+- Multi-tenancy/organization enforcement is not implemented.
 
-Approval is modeled as persistent workflow state so the application can stop, restart, and resume safely.
+## License
 
-## Why separate real and synthetic benchmarks?
-Modeled latency budgets are useful, but they are not measurements.
-
-The benchmark UI and data model keep synthetic simulation separate from real orchestration-stack results.
-
----
-
-
+MIT; see `LICENSE`.
