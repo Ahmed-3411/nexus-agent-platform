@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html { background: #F7F9FC; }
+
+body {
+  min-height: 100vh;
+  color: #121826;
+  background:
+    radial-gradient(circle at 8% -10%, rgba(34, 199, 214, 0.065), transparent 32rem),
+    radial-gradient(circle at 92% 4%, rgba(37, 99, 235, 0.085), transparent 34rem),
+    linear-gradient(180deg, #f8faff 0%, #f7f9fc 42%, #f5f8fc 100%);
+}
+
+::selection { background: rgba(37, 99, 235, 0.16); color: #121826; }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: #F7F9FC; }
+::-webkit-scrollbar-thumb { border: 2px solid #F7F9FC; border-radius: 999px; background: #c8ceda; }
+
+@layer components {
+  .panel {
+    @apply rounded-[28px] border border-line/75 bg-white/[0.94] shadow-[0_18px_60px_rgba(18,24,38,0.055)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200;
+  }
+
+  .surface-subtle {
+    @apply rounded-2xl border border-line/70 bg-slate-50/65;
+  }
+
+  .metric-value {
+    @apply text-[1.9rem] font-semibold tracking-[-0.045em] text-ink;
+  }
+
+  .field {
+    @apply w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-brand/50 focus:ring-4 focus:ring-brand/10;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.20)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-brandDark hover:shadow-[0_10px_28px_rgba(37,99,235,0.26)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white/90 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-[0_4px_14px_rgba(18,24,38,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/20 hover:bg-white hover:text-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-brand;
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

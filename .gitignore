@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.coverage*
+htmlcov/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+
+# Docker
+*.log
+
+# Benchmark raw outputs
+benchmark/**/core_raw_samples.csv
+benchmark/results/release/*_raw.csv
+benchmark/results/integration_check/*_raw.csv
